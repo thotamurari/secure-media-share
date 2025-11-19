@@ -11,6 +11,7 @@ interface Post {
   image_url: string;
   caption: string;
   created_at: string;
+  user_id: string;
   profiles: {
     username: string;
     avatar_url: string | null;
@@ -142,11 +143,12 @@ export default function Home() {
             posts.map((post) => (
               <PostCard
                 key={post.id}
-                post={post}
-                likesCount={likesCount[post.id] || 0}
-                commentsCount={commentsCount[post.id] || 0}
-                isLiked={likes[post.id] || false}
-                onLike={() => handleLike(post.id)}
+            post={post}
+            likesCount={likesCount[post.id] || 0}
+            commentsCount={commentsCount[post.id] || 0}
+            isLiked={likes[post.id] || false}
+            onLike={() => handleLike(post.id)}
+            currentUserId={user?.id}
               />
             ))
           )}
