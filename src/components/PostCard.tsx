@@ -1,10 +1,38 @@
 import { useState } from 'react';
-import { Heart, MessageCircle, User, Download } from 'lucide-react';
+import { Heart, MessageCircle, User, Download, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { ProtectionOverlay } from './ProtectionOverlay';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface PostCardProps {
   post: {
@@ -23,10 +51,15 @@ interface PostCardProps {
   isLiked: boolean;
   onLike: () => void;
   currentUserId?: string;
+  onPostUpdated?: () => void;
 }
 
-export const PostCard = ({ post, likesCount, commentsCount, isLiked, onLike, currentUserId }: PostCardProps) => {
+export const PostCard = ({ post, likesCount, commentsCount, isLiked, onLike, currentUserId, onPostUpdated }: PostCardProps) => {
   const [attemptCount, setAttemptCount] = useState(0);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [editCaption, setEditCaption] = useState(post.caption);
+  const [isUpdating, setIsUpdating] = useState(false);
   const navigate = useNavigate();
   const isOwner = currentUserId === post.user_id;
 
@@ -47,6 +80,48 @@ export const PostCard = ({ post, likesCount, commentsCount, isLiked, onLike, cur
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handleEdit = async () => {
+    setIsUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('posts')
+        .update({ caption: editCaption })
+        .eq('id', post.id);
+
+      if (error) throw error;
+
+      toast.success('Post updated successfully');
+      setShowEditDialog(false);
+      onPostUpdated?.();
+    } catch (error: any) {
+      toast.error('Failed to update post');
+      console.error('Error updating post:', error);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setIsUpdating(true);
+    try {
+      const { error } = await supabase
+        .from('posts')
+        .delete()
+        .eq('id', post.id);
+
+      if (error) throw error;
+
+      toast.success('Post deleted successfully');
+      setShowDeleteDialog(false);
+      onPostUpdated?.();
+    } catch (error: any) {
+      toast.error('Failed to delete post');
+      console.error('Error deleting post:', error);
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   return (
@@ -70,6 +145,28 @@ export const PostCard = ({ post, likesCount, commentsCount, isLiked, onLike, cur
               {post.profiles.username}
             </p>
           </div>
+          {isOwner && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <MoreVertical className="w-5 h-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setShowEditDialog(true)}>
+                  <Pencil className="w-4 h-4 mr-2" />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => setShowDeleteDialog(true)}
+                  className="text-destructive"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </CardHeader>
       <CardContent className="p-0 relative">
@@ -125,6 +222,59 @@ export const PostCard = ({ post, likesCount, commentsCount, isLiked, onLike, cur
           </p>
         </div>
       </CardFooter>
+
+      {/* Edit Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Post</DialogTitle>
+            <DialogDescription>
+              Update your post caption
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="caption">Caption</Label>
+              <Input
+                id="caption"
+                value={editCaption}
+                onChange={(e) => setEditCaption(e.target.value)}
+                placeholder="Write a caption..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleEdit} disabled={isUpdating}>
+              {isUpdating ? 'Updating...' : 'Update'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Post?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete your post.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isUpdating}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isUpdating ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 };

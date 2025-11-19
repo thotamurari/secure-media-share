@@ -149,6 +149,7 @@ export default function Home() {
             isLiked={likes[post.id] || false}
             onLike={() => handleLike(post.id)}
             currentUserId={user?.id}
+            onPostUpdated={fetchPosts}
               />
             ))
           )}
