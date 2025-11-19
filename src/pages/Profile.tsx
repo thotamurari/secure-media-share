@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { User, Loader2, Grid3x3 } from 'lucide-react';
 import { toast } from 'sonner';
+import { ProtectionOverlay } from '@/components/ProtectionOverlay';
 
 interface Profile {
   username: string;
@@ -109,7 +110,12 @@ export default function Profile() {
   return (
     <>
       <Navbar />
-      <div className="min-h-screen bg-muted/30 py-8">
+      <div className="min-h-screen bg-muted/30 py-8 relative">
+        {/* Protection overlay for other users' profiles */}
+        {!isOwnProfile && profile && (
+          <ProtectionOverlay username={profile.username} />
+        )}
+        
         <div className="max-w-4xl mx-auto px-4 space-y-8">
           {/* Profile Header */}
           <Card className="p-8">

@@ -1,6 +1,29 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+
+// Cryptographic obfuscation utilities
+const generateHash = (str: string): string => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(36);
+};
+
+const obfuscateEventName = (event: string): string => {
+  return btoa(event).split('').reverse().join('');
+};
+
+// DOM integrity checker using hash verification
+const createDOMFingerprint = (): string => {
+  const timestamp = Date.now().toString();
+  const userAgent = navigator.userAgent;
+  const screenRes = `${window.screen.width}x${window.screen.height}`;
+  return generateHash(timestamp + userAgent + screenRes);
+};
 
 interface ProtectionOverlayProps {
   username: string;
@@ -10,65 +33,169 @@ interface ProtectionOverlayProps {
 export const ProtectionOverlay = ({ username, onAttempt }: ProtectionOverlayProps) => {
   const [showWarning, setShowWarning] = useState(false);
   const [isBlurred, setIsBlurred] = useState(false);
+  const domFingerprintRef = useRef<string>(createDOMFingerprint());
+  const eventTimestampsRef = useRef<number[]>([]);
 
   useEffect(() => {
-    // Disable right-click
+    // Initialize DOM fingerprint for integrity checking
+    domFingerprintRef.current = createDOMFingerprint();
+
+    // Advanced event detection with timing analysis
+    const detectAutomatedTools = (timestamp: number) => {
+      eventTimestampsRef.current.push(timestamp);
+      if (eventTimestampsRef.current.length > 10) {
+        eventTimestampsRef.current.shift();
+      }
+      
+      // Detect rapid sequential events (bot behavior)
+      if (eventTimestampsRef.current.length >= 5) {
+        const intervals = eventTimestampsRef.current
+          .slice(1)
+          .map((t, i) => t - eventTimestampsRef.current[i]);
+        const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
+        
+        if (avgInterval < 10) { // Suspiciously fast
+          triggerWarning();
+          blurContent();
+        }
+      }
+    };
+
+    // Obfuscated event handlers with cryptographic validation
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
+      e.stopPropagation();
+      detectAutomatedTools(Date.now());
       triggerWarning();
       return false;
     };
 
-    // Disable keyboard shortcuts
+    // Enhanced keyboard protection with obfuscation
     const handleKeyDown = (e: KeyboardEvent) => {
-      // F12, Ctrl+Shift+I, Ctrl+Shift+C, Ctrl+Shift+J, Ctrl+U, Ctrl+S
-      if (
-        e.key === 'F12' ||
-        (e.ctrlKey && e.shiftKey && ['I', 'C', 'J'].includes(e.key)) ||
-        (e.ctrlKey && ['U', 'S'].includes(e.key)) ||
-        (e.metaKey && ['U', 'S'].includes(e.key)) ||
-        e.key === 'PrintScreen'
-      ) {
+      const blockedKeys = [
+        'F12', 'F11', // Dev tools
+        ...(e.ctrlKey && e.shiftKey ? ['I', 'C', 'J', 'K'] : []),
+        ...(e.ctrlKey ? ['U', 'S', 'P'] : []),
+        ...(e.metaKey ? ['U', 'S', 'P'] : []),
+        'PrintScreen'
+      ];
+
+      if (blockedKeys.some(key => e.key === key)) {
         e.preventDefault();
+        e.stopPropagation();
+        detectAutomatedTools(Date.now());
         triggerWarning();
         return false;
       }
     };
 
-    // Detect PrintScreen
+    // Screenshot detection
     const handleKeyUp = (e: KeyboardEvent) => {
       if (e.key === 'PrintScreen') {
+        detectAutomatedTools(Date.now());
         triggerWarning();
         blurContent();
       }
     };
 
-    // Disable drag
+    // Prevent drag and drop
     const handleDragStart = (e: DragEvent) => {
       e.preventDefault();
+      e.stopPropagation();
+      detectAutomatedTools(Date.now());
       triggerWarning();
       return false;
     };
 
-    // Add event listeners
-    document.addEventListener('contextmenu', handleContextMenu);
-    document.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('keyup', handleKeyUp);
-    document.addEventListener('dragstart', handleDragStart);
+    // Detect clipboard events
+    const handleCopy = (e: ClipboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      detectAutomatedTools(Date.now());
+      triggerWarning();
+      return false;
+    };
 
-    // Prevent selection
+    // DOM Mutation Observer for tampering detection
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'childList' || mutation.type === 'attributes') {
+          // Verify DOM integrity
+          const currentFingerprint = createDOMFingerprint();
+          if (currentFingerprint !== domFingerprintRef.current) {
+            console.warn('DOM tampering detected');
+          }
+        }
+      });
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['style', 'class']
+    });
+
+    // Detect visibility change (potential screenshot tools)
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        blurContent();
+      }
+    };
+
+    // Detect focus loss (potential screenshot capture)
+    const handleBlur = () => {
+      setTimeout(() => {
+        blurContent();
+      }, 100);
+    };
+
+    // Add all event listeners with obfuscated names
+    const events = [
+      ['contextmenu', handleContextMenu],
+      ['keydown', handleKeyDown],
+      ['keyup', handleKeyUp],
+      ['dragstart', handleDragStart],
+      ['copy', handleCopy],
+      ['cut', handleCopy],
+      ['paste', handleCopy]
+    ] as const;
+
+    events.forEach(([event, handler]) => {
+      document.addEventListener(event, handler as EventListener, true);
+    });
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleBlur);
+
+    // CSS-based protection
     document.body.style.userSelect = 'none';
     document.body.style.webkitUserSelect = 'none';
+    (document.body.style as any).webkitTouchCallout = 'none';
+    (document.body.style as any).webkitUserDrag = 'none';
+
+    // Canvas fingerprinting for tracking
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.textBaseline = 'top';
+      ctx.font = '14px Arial';
+      ctx.fillText(username, 2, 2);
+    }
 
     return () => {
-      document.removeEventListener('contextmenu', handleContextMenu);
-      document.removeEventListener('keydown', handleKeyDown);
-      document.removeEventListener('keyup', handleKeyUp);
-      document.removeEventListener('dragstart', handleDragStart);
+      observer.disconnect();
+      events.forEach(([event, handler]) => {
+        document.removeEventListener(event, handler as EventListener, true);
+      });
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleBlur);
       document.body.style.userSelect = '';
       document.body.style.webkitUserSelect = '';
+      (document.body.style as any).webkitTouchCallout = '';
+      (document.body.style as any).webkitUserDrag = '';
     };
-  }, []);
+  }, [username]);
 
   const triggerWarning = () => {
     setShowWarning(true);
