@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Heart, MessageCircle, User } from 'lucide-react';
+import { Heart, MessageCircle, User, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
@@ -12,6 +12,7 @@ interface PostCardProps {
     image_url: string;
     caption: string;
     created_at: string;
+    user_id: string;
     profiles: {
       username: string;
       avatar_url: string | null;
@@ -21,14 +22,31 @@ interface PostCardProps {
   commentsCount: number;
   isLiked: boolean;
   onLike: () => void;
+  currentUserId?: string;
 }
 
-export const PostCard = ({ post, likesCount, commentsCount, isLiked, onLike }: PostCardProps) => {
+export const PostCard = ({ post, likesCount, commentsCount, isLiked, onLike, currentUserId }: PostCardProps) => {
   const [attemptCount, setAttemptCount] = useState(0);
   const navigate = useNavigate();
+  const isOwner = currentUserId === post.user_id;
 
   const handleAttempt = () => {
     setAttemptCount((prev) => prev + 1);
+  };
+
+  const handleDownload = () => {
+    if (!isOwner) {
+      handleAttempt();
+      return;
+    }
+
+    // Owner can download their own content
+    const link = document.createElement('a');
+    link.href = post.image_url;
+    link.download = `mediagram-${post.id}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -79,6 +97,14 @@ export const PostCard = ({ post, likesCount, commentsCount, isLiked, onLike }: P
           </Button>
           <Button variant="ghost" size="icon">
             <MessageCircle className="w-6 h-6" />
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={handleDownload}
+            className={isOwner ? '' : 'cursor-not-allowed'}
+          >
+            <Download className="w-6 h-6" />
           </Button>
         </div>
         <div className="space-y-2 w-full">
