@@ -3,10 +3,33 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Home, PlusSquare, User, LogOut, Instagram, ArrowLeft, ArrowRight } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 export const Navbar = () => {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      fetchUserProfile();
+    }
+  }, [user]);
+
+  const fetchUserProfile = async () => {
+    if (!user) return;
+    
+    const { data } = await supabase
+      .from('profiles')
+      .select('avatar_url')
+      .eq('id', user.id)
+      .single();
+    
+    if (data?.avatar_url) {
+      setAvatarUrl(data.avatar_url);
+    }
+  };
 
   return (
     <nav className="sticky top-0 z-40 bg-background border-b border-border">
@@ -67,7 +90,7 @@ export const Navbar = () => {
                 className="cursor-pointer border-2 border-primary"
                 onClick={() => navigate('/profile')}
               >
-                <AvatarImage src={undefined} />
+                <AvatarImage src={avatarUrl || undefined} />
                 <AvatarFallback className="bg-gradient-instagram text-white">
                   <User className="w-4 h-4" />
                 </AvatarFallback>

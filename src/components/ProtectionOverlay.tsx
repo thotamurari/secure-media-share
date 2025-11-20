@@ -116,24 +116,15 @@ export const ProtectionOverlay = ({ username, onAttempt }: ProtectionOverlayProp
       return false;
     };
 
-    // DOM Mutation Observer for tampering detection
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        if (mutation.type === 'childList' || mutation.type === 'attributes') {
-          // Verify DOM integrity
-          const currentFingerprint = createDOMFingerprint();
-          if (currentFingerprint !== domFingerprintRef.current) {
-            console.warn('DOM tampering detected');
-          }
-        }
-      });
+    // Removed overly sensitive DOM mutation observer to prevent false positives
+    const observer = new MutationObserver(() => {
+      // Observer kept for future enhancements but not triggering warnings
     });
 
     observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['style', 'class']
+      childList: false,
+      subtree: false,
+      attributes: false
     });
 
     // Detect visibility change (potential screenshot tools)
@@ -200,7 +191,7 @@ export const ProtectionOverlay = ({ username, onAttempt }: ProtectionOverlayProp
   const triggerWarning = () => {
     setShowWarning(true);
     onAttempt?.();
-    setTimeout(() => setShowWarning(false), 4000);
+    setTimeout(() => setShowWarning(false), 15000); // Display warning for 15 seconds
   };
 
   const blurContent = () => {
