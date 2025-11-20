@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/card';
 import { User, Loader2, Grid3x3 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ProtectionOverlay } from '@/components/ProtectionOverlay';
+import { EditProfileDialog } from '@/components/EditProfileDialog';
 
 interface Profile {
   username: string;
@@ -30,6 +31,7 @@ export default function Profile() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [isOwnProfile, setIsOwnProfile] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchProfile();
@@ -143,7 +145,9 @@ export default function Profile() {
                   <p className="text-sm">{profile.bio}</p>
                 )}
                 {isOwnProfile && (
-                  <Button variant="outline">Edit Profile</Button>
+                  <Button variant="outline" onClick={() => setEditDialogOpen(true)}>
+                    Edit Profile
+                  </Button>
                 )}
               </div>
             </div>
@@ -178,6 +182,16 @@ export default function Profile() {
             )}
           </div>
         </div>
+
+        {/* Edit Profile Dialog */}
+        {isOwnProfile && profile && (
+          <EditProfileDialog
+            open={editDialogOpen}
+            onOpenChange={setEditDialogOpen}
+            profile={profile}
+            onProfileUpdated={fetchProfile}
+          />
+        )}
       </div>
     </>
   );
