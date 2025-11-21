@@ -116,16 +116,7 @@ export const ProtectionOverlay = ({ username, onAttempt }: ProtectionOverlayProp
       return false;
     };
 
-    // Removed overly sensitive DOM mutation observer to prevent false positives
-    const observer = new MutationObserver(() => {
-      // Observer kept for future enhancements but not triggering warnings
-    });
-
-    observer.observe(document.body, {
-      childList: false,
-      subtree: false,
-      attributes: false
-    });
+    // DOM mutation observer removed to prevent API errors
 
     // Detect visibility change (potential screenshot tools)
     const handleVisibilityChange = () => {
@@ -175,7 +166,6 @@ export const ProtectionOverlay = ({ username, onAttempt }: ProtectionOverlayProp
     }
 
     return () => {
-      observer.disconnect();
       events.forEach(([event, handler]) => {
         document.removeEventListener(event, handler as EventListener, true);
       });
