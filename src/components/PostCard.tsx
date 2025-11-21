@@ -207,7 +207,14 @@ export const PostCard = ({ post, likesCount, commentsCount, isLiked, onLike, cur
         <div className="space-y-2 w-full">
           <p className="text-sm font-semibold">{likesCount} likes</p>
           {post.caption && (
-            <p className="text-sm">
+            <p 
+              className="text-sm select-none"
+              onCopy={(e) => {
+                e.preventDefault();
+                toast.error('Cannot copy protected content');
+              }}
+              onContextMenu={(e) => e.preventDefault()}
+            >
               <span className="font-semibold">{post.profiles.username}</span>{' '}
               <span className="text-muted-foreground">{post.caption}</span>
             </p>
