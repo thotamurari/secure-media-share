@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Home, PlusSquare, User, LogOut, Instagram, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Home, PlusSquare, User, LogOut, Instagram, ArrowLeft, ArrowRight, MessageCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -83,6 +83,14 @@ export const Navbar = () => {
             className="hover:bg-muted"
           >
             <PlusSquare className="w-6 h-6" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/messages')}
+            className="hover:bg-muted"
+          >
+            <MessageCircle className="w-6 h-6" />
           </Button>
           {user && (
             <>

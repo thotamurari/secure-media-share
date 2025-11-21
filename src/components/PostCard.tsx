@@ -179,7 +179,13 @@ export const PostCard = ({ post, likesCount, commentsCount, isLiked, onLike, cur
             draggable="false"
             onContextMenu={(e) => e.preventDefault()}
           />
-          <ProtectionOverlay username={post.profiles.username} onAttempt={handleAttempt} />
+          <ProtectionOverlay 
+            username={post.profiles.username} 
+            contentOwnerId={post.user_id}
+            contentType="post"
+            contentId={post.id}
+            onAttempt={handleAttempt} 
+          />
         </div>
       </CardContent>
       <CardFooter className="p-4 flex-col items-start gap-3">
