@@ -92,6 +92,51 @@ export type Database = {
           },
         ]
       }
+      messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          read: boolean
+          receiver_id: string
+          sender_id: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          read?: boolean
+          receiver_id: string
+          sender_id: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          read?: boolean
+          receiver_id?: string
+          sender_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_receiver_id_fkey"
+            columns: ["receiver_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       posts: {
         Row: {
           caption: string | null
@@ -156,6 +201,48 @@ export type Database = {
           username?: string
         }
         Relationships: []
+      }
+      screenshot_attempts: {
+        Row: {
+          attempted_by_id: string
+          content_id: string | null
+          content_owner_id: string
+          content_type: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          attempted_by_id: string
+          content_id?: string | null
+          content_owner_id: string
+          content_type: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          attempted_by_id?: string
+          content_id?: string | null
+          content_owner_id?: string
+          content_type?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "screenshot_attempts_attempted_by_id_fkey"
+            columns: ["attempted_by_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screenshot_attempts_content_owner_id_fkey"
+            columns: ["content_owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

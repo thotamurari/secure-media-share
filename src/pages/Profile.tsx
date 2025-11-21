@@ -12,6 +12,7 @@ import { ProtectionOverlay } from '@/components/ProtectionOverlay';
 import { EditProfileDialog } from '@/components/EditProfileDialog';
 
 interface Profile {
+  id: string;
   username: string;
   full_name: string | null;
   bio: string | null;
@@ -114,8 +115,12 @@ export default function Profile() {
       <Navbar />
       <div className="min-h-screen bg-muted/30 py-8 relative">
         {/* Protection overlay for other users' profiles */}
-        {!isOwnProfile && profile && (
-          <ProtectionOverlay username={profile.username} />
+        {!isOwnProfile && profile && user && (
+          <ProtectionOverlay 
+            username={profile.username}
+            contentOwnerId={profile.id}
+            contentType="profile"
+          />
         )}
         
         <div className="max-w-4xl mx-auto px-4 space-y-8">

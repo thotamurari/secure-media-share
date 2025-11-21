@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { supabase } from '@/integrations/supabase/client';
 
 // Cryptographic obfuscation utilities
 const generateHash = (str: string): string => {
@@ -27,10 +28,13 @@ const createDOMFingerprint = (): string => {
 
 interface ProtectionOverlayProps {
   username: string;
+  contentOwnerId?: string;
+  contentType?: 'post' | 'profile';
+  contentId?: string;
   onAttempt?: () => void;
 }
 
-export const ProtectionOverlay = ({ username, onAttempt }: ProtectionOverlayProps) => {
+export const ProtectionOverlay = ({ username, contentOwnerId, contentType, contentId, onAttempt }: ProtectionOverlayProps) => {
   const [showWarning, setShowWarning] = useState(false);
   const [isBlurred, setIsBlurred] = useState(false);
   const domFingerprintRef = useRef<string>(createDOMFingerprint());
@@ -178,10 +182,28 @@ export const ProtectionOverlay = ({ username, onAttempt }: ProtectionOverlayProp
     };
   }, [username]);
 
-  const triggerWarning = () => {
+  const triggerWarning = async () => {
     setShowWarning(true);
     onAttempt?.();
-    setTimeout(() => setShowWarning(false), 15000); // Display warning for 15 seconds
+    
+    // Log screenshot attempt to database if owner info provided
+    if (contentOwnerId) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && user.id !== contentOwnerId) {
+          await supabase.from('screenshot_attempts').insert({
+            content_owner_id: contentOwnerId,
+            attempted_by_id: user.id,
+            content_type: contentType || 'profile',
+            content_id: contentId
+          });
+        }
+      } catch (error) {
+        console.error('Error logging screenshot attempt:', error);
+      }
+    }
+    
+    setTimeout(() => setShowWarning(false), 5000); // Display warning for 5 seconds
   };
 
   const blurContent = () => {
