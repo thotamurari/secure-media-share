@@ -38,6 +38,10 @@ export default function Profile() {
     fetchProfile();
   }, [username, user]);
 
+  const handleProfileUpdate = () => {
+    fetchProfile(); // Refresh profile after edit
+  };
+
   const fetchProfile = async () => {
     try {
       // If no username param, fetch current user's profile

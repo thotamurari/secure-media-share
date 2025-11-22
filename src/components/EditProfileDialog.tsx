@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -43,6 +43,16 @@ export function EditProfileDialog({
     bio: profile.bio || '',
     avatar_url: profile.avatar_url || '',
   });
+
+  // Reinitialize form data when profile changes
+  useEffect(() => {
+    setFormData({
+      username: profile.username,
+      full_name: profile.full_name || '',
+      bio: profile.bio || '',
+      avatar_url: profile.avatar_url || '',
+    });
+  }, [profile, open]);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     try {

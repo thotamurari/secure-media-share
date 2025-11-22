@@ -249,21 +249,30 @@ export default function Messages() {
     if (!newMessage.trim() || !selectedUser || !user) return;
 
     setSending(true);
+    const messageContent = newMessage.trim();
+    setNewMessage(''); // Clear input immediately for better UX
+    
     try {
-      const { error } = await supabase.from('messages').insert({
+      const { data, error } = await supabase.from('messages').insert({
         sender_id: user.id,
         receiver_id: selectedUser.id,
-        content: newMessage.trim(),
-      });
+        content: messageContent,
+      }).select().single();
 
       if (error) throw error;
 
-      setNewMessage('');
-      fetchMessages(selectedUser.id);
+      // Immediately add sent message to UI for instant feedback
+      setMessages((prev) => [...prev, {
+        ...data,
+        sender: { id: user.id, username: '', avatar_url: null },
+        receiver: { id: selectedUser.id, username: selectedUser.username, avatar_url: selectedUser.avatar_url }
+      }]);
+      
       fetchConversations();
     } catch (error: any) {
       toast.error('Failed to send message');
       console.error('Error sending message:', error);
+      setNewMessage(messageContent); // Restore message on error
     } finally {
       setSending(false);
     }

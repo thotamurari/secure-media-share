@@ -136,6 +136,14 @@ export const ProtectionOverlay = ({ username, contentOwnerId, contentType, conte
       }, 100);
     };
 
+    // Detect fullscreen changes (potential screenshot attempt)
+    const handleFullscreenChange = () => {
+      if (document.fullscreenElement) {
+        triggerWarning();
+        blurContent();
+      }
+    };
+
     // Add all event listeners with obfuscated names
     const events = [
       ['contextmenu', handleContextMenu],
@@ -152,6 +160,7 @@ export const ProtectionOverlay = ({ username, contentOwnerId, contentType, conte
     });
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
     window.addEventListener('blur', handleBlur);
 
     // CSS-based protection
@@ -174,6 +183,7 @@ export const ProtectionOverlay = ({ username, contentOwnerId, contentType, conte
         document.removeEventListener(event, handler as EventListener, true);
       });
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
       window.removeEventListener('blur', handleBlur);
       document.body.style.userSelect = '';
       document.body.style.webkitUserSelect = '';
@@ -183,27 +193,28 @@ export const ProtectionOverlay = ({ username, contentOwnerId, contentType, conte
   }, [username]);
 
   const triggerWarning = async () => {
-    setShowWarning(true);
-    onAttempt?.();
-    
     // Log screenshot attempt to database if owner info provided
     if (contentOwnerId) {
       try {
         const { data: { user } } = await supabase.auth.getUser();
+        // Only show warning and log if it's not the owner
         if (user && user.id !== contentOwnerId) {
+          setShowWarning(true);
+          onAttempt?.();
+          
           await supabase.from('screenshot_attempts').insert({
             content_owner_id: contentOwnerId,
             attempted_by_id: user.id,
             content_type: contentType || 'profile',
             content_id: contentId
           });
+          
+          setTimeout(() => setShowWarning(false), 5000);
         }
       } catch (error) {
         console.error('Error logging screenshot attempt:', error);
       }
     }
-    
-    setTimeout(() => setShowWarning(false), 5000); // Display warning for 5 seconds
   };
 
   const blurContent = () => {
