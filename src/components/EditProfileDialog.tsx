@@ -57,7 +57,10 @@ export function EditProfileDialog({
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
       const file = e.target.files?.[0];
-      if (!file || !user) return;
+      if (!file || !user) {
+        if (!user) toast.error('You must be logged in to upload');
+        return;
+      }
 
       // Validate file type
       if (!file.type.startsWith('image/')) {
@@ -75,11 +78,13 @@ export function EditProfileDialog({
 
       // Delete old avatar if exists
       if (formData.avatar_url) {
-        const oldPath = formData.avatar_url.split('/').pop();
-        if (oldPath) {
-          await supabase.storage
-            .from('avatars')
-            .remove([`${user.id}/${oldPath}`]);
+        try {
+          const oldPath = formData.avatar_url.split('/avatars/').pop();
+          if (oldPath) {
+            await supabase.storage.from('avatars').remove([oldPath]);
+          }
+        } catch (err) {
+          console.log('Could not delete old avatar:', err);
         }
       }
 
@@ -88,22 +93,32 @@ export function EditProfileDialog({
       const fileName = `${Date.now()}.${fileExt}`;
       const filePath = `${user.id}/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
+      console.log('Uploading to:', filePath);
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        throw uploadError;
+      }
+
+      console.log('Upload successful:', uploadData);
 
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
 
+      console.log('Public URL:', publicUrl);
       setFormData({ ...formData, avatar_url: publicUrl });
-      toast.success('Avatar uploaded successfully');
+      toast.success('Avatar uploaded! Click "Save Changes" to update your profile.');
     } catch (error: any) {
       console.error('Error uploading avatar:', error);
-      toast.error('Failed to upload avatar');
+      toast.error(error.message || 'Failed to upload avatar');
     } finally {
       setUploading(false);
     }
@@ -111,11 +126,27 @@ export function EditProfileDialog({
 
   const handleSave = async () => {
     try {
-      if (!user) return;
+      if (!user) {
+        toast.error('You must be logged in');
+        return;
+      }
+
+      // Validate username
+      if (!formData.username.trim()) {
+        toast.error('Username is required');
+        return;
+      }
 
       setLoading(true);
 
-      const { error } = await supabase
+      console.log('Saving profile with data:', {
+        username: formData.username,
+        full_name: formData.full_name || null,
+        bio: formData.bio || null,
+        avatar_url: formData.avatar_url || null,
+      });
+
+      const { data, error } = await supabase
         .from('profiles')
         .update({
           username: formData.username,
@@ -123,16 +154,22 @@ export function EditProfileDialog({
           bio: formData.bio || null,
           avatar_url: formData.avatar_url || null,
         })
-        .eq('id', user.id);
+        .eq('id', user.id)
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        throw error;
+      }
 
+      console.log('Profile updated successfully:', data);
       toast.success('Profile updated successfully');
       onProfileUpdated();
       onOpenChange(false);
     } catch (error: any) {
       console.error('Error updating profile:', error);
-      toast.error('Failed to update profile');
+      toast.error(error.message || 'Failed to update profile');
     } finally {
       setLoading(false);
     }
