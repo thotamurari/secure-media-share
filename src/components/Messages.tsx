@@ -7,9 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { User, Send, Loader2, ArrowLeft, Bell } from 'lucide-react';
+import { User, Send, Loader2, ArrowLeft, Bell, MessageSquarePlus, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface Profile {
   id: string;
@@ -56,11 +57,15 @@ export default function Messages() {
   const [sending, setSending] = useState(false);
   const [screenshotAttempts, setScreenshotAttempts] = useState<ScreenshotAttempt[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showNewMessageDialog, setShowNewMessageDialog] = useState(false);
+  const [allUsers, setAllUsers] = useState<Profile[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (user) {
       fetchConversations();
       fetchScreenshotAttempts();
+      fetchAllUsers();
       subscribeToMessages();
       subscribeToScreenshotAttempts();
     }
@@ -158,6 +163,34 @@ export default function Messages() {
       setScreenshotAttempts(data || []);
     }
   };
+
+  const fetchAllUsers = async () => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, username, avatar_url')
+      .neq('id', user.id) // Exclude current user
+      .order('username', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching users:', error);
+    } else {
+      setAllUsers(data || []);
+    }
+  };
+
+  const startNewConversation = (selectedProfile: Profile) => {
+    setSelectedUser(selectedProfile);
+    setShowNewMessageDialog(false);
+    setSearchQuery('');
+    // The messages will be empty for a new conversation
+    setMessages([]);
+  };
+
+  const filteredUsers = allUsers.filter(profile =>
+    profile.username.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const fetchConversations = async () => {
     if (!user) return;
@@ -296,19 +329,28 @@ export default function Messages() {
         <div className="max-w-6xl mx-auto px-4">
           <div className="flex items-center justify-between mb-6">
             <h1 className="text-3xl font-bold">Messages</h1>
-            <Button
-              variant={showNotifications ? 'default' : 'outline'}
-              onClick={() => setShowNotifications(!showNotifications)}
-              className="relative"
-            >
-              <Bell className="w-5 h-5 mr-2" />
-              Screenshot Alerts
-              {screenshotAttempts.length > 0 && (
-                <Badge variant="destructive" className="ml-2">
-                  {screenshotAttempts.length}
-                </Badge>
-              )}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="default"
+                onClick={() => setShowNewMessageDialog(true)}
+              >
+                <MessageSquarePlus className="w-5 h-5 mr-2" />
+                New Message
+              </Button>
+              <Button
+                variant={showNotifications ? 'default' : 'outline'}
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="relative"
+              >
+                <Bell className="w-5 h-5 mr-2" />
+                Screenshot Alerts
+                {screenshotAttempts.length > 0 && (
+                  <Badge variant="destructive" className="ml-2">
+                    {screenshotAttempts.length}
+                  </Badge>
+                )}
+              </Button>
+            </div>
           </div>
 
           {showNotifications && (
@@ -479,6 +521,56 @@ export default function Messages() {
             </Card>
           </div>
         </div>
+
+        {/* New Message Dialog */}
+        <Dialog open={showNewMessageDialog} onOpenChange={setShowNewMessageDialog}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Start New Conversation</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              {/* Search Input */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search users..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+
+              {/* Users List */}
+              <ScrollArea className="h-[400px] pr-4">
+                {filteredUsers.length === 0 ? (
+                  <p className="text-muted-foreground text-center py-8">
+                    {searchQuery ? 'No users found' : 'No other users yet'}
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {filteredUsers.map((profile) => (
+                      <div
+                        key={profile.id}
+                        onClick={() => startNewConversation(profile)}
+                        className="flex items-center gap-3 p-3 rounded-lg cursor-pointer hover:bg-muted transition-colors"
+                      >
+                        <Avatar className="border-2 border-primary">
+                          <AvatarImage src={profile.avatar_url || undefined} />
+                          <AvatarFallback className="bg-gradient-instagram text-white">
+                            <User className="w-4 h-4" />
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <p className="font-semibold">{profile.username}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </>
   );
