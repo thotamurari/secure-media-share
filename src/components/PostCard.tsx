@@ -54,6 +54,28 @@ interface PostCardProps {
   onPostUpdated?: () => void;
 }
 
+const formatPostingDate = (dateStr: string) => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffInMs = Math.max(0, now.getTime() - date.getTime());
+  const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  const diffInDays = Math.floor(diffInHours / 24);
+
+  if (diffInMinutes < 2) return 'Just now';
+  if (diffInMinutes < 60) return `${diffInMinutes} minutes ago`;
+  if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
+  if (diffInDays === 1) return 'Yesterday';
+  if (diffInDays < 7) return `${diffInDays} days ago`;
+
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+};
+
 export const PostCard = ({ post, likesCount, commentsCount, isLiked, onLike, currentUserId, onPostUpdated }: PostCardProps) => {
   const [attemptCount, setAttemptCount] = useState(0);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -70,6 +92,9 @@ export const PostCard = ({ post, likesCount, commentsCount, isLiked, onLike, cur
   const handleDownload = () => {
     if (!isOwner) {
       handleAttempt();
+      toast.error('⚠️ This is private content. Screenshots and downloads are not allowed.', {
+        duration: 4000,
+      });
       return;
     }
 
@@ -132,7 +157,7 @@ export const PostCard = ({ post, likesCount, commentsCount, isLiked, onLike, cur
             className="cursor-pointer border-2 border-primary"
             onClick={() => navigate(`/profile/${post.profiles.username}`)}
           >
-            <AvatarImage src={post.profiles.avatar_url || undefined} />
+            {post.profiles.avatar_url && <AvatarImage src={post.profiles.avatar_url} />}
             <AvatarFallback className="bg-gradient-instagram text-white">
               <User className="w-4 h-4" />
             </AvatarFallback>
@@ -169,25 +194,29 @@ export const PostCard = ({ post, likesCount, commentsCount, isLiked, onLike, cur
           )}
         </div>
       </CardHeader>
-      <CardContent className="p-0 relative">
-        {/* Protected Image */}
-        <div className="relative aspect-square bg-muted">
-          <img
-            src={post.image_url}
-            alt={post.caption || 'Post'}
-            className="w-full h-full object-cover select-none"
-            draggable="false"
-            onContextMenu={(e) => e.preventDefault()}
-          />
-          <ProtectionOverlay 
-            username={post.profiles.username} 
-            contentOwnerId={post.user_id}
-            contentType="post"
-            contentId={post.id}
-            onAttempt={handleAttempt} 
-          />
-        </div>
-      </CardContent>
+
+      {/* Protected Image Content */}
+      {post.image_url && (
+        <CardContent className="p-0 relative">
+          <div className="relative aspect-square bg-muted overflow-hidden">
+            <img
+              src={post.image_url}
+              alt={post.caption || 'Post media'}
+              className="w-full h-full object-cover select-none"
+              draggable="false"
+              onContextMenu={(e) => e.preventDefault()}
+            />
+            <ProtectionOverlay 
+              username={post.profiles.username} 
+              contentOwnerId={post.user_id}
+              contentType="post"
+              contentId={post.id}
+              onAttempt={handleAttempt} 
+            />
+          </div>
+        </CardContent>
+      )}
+
       <CardFooter className="p-4 flex-col items-start gap-3">
         <div className="flex items-center gap-4 w-full">
           <Button
@@ -205,7 +234,8 @@ export const PostCard = ({ post, likesCount, commentsCount, isLiked, onLike, cur
             variant="ghost" 
             size="icon"
             onClick={handleDownload}
-            className={isOwner ? '' : 'cursor-not-allowed'}
+            className={isOwner ? 'hover:text-primary' : 'text-muted-foreground hover:text-destructive'}
+            title={isOwner ? 'Download image' : 'Protected content'}
           >
             <Download className="w-6 h-6" />
           </Button>
@@ -231,7 +261,7 @@ export const PostCard = ({ post, likesCount, commentsCount, isLiked, onLike, cur
             </p>
           )}
           <p className="text-xs text-muted-foreground">
-            {new Date(post.created_at).toLocaleDateString()}
+            {formatPostingDate(post.created_at)}
           </p>
         </div>
       </CardFooter>

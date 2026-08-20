@@ -372,7 +372,9 @@ export default function Messages() {
                           className="flex items-center gap-3 p-3 bg-muted rounded-lg"
                         >
                           <Avatar className="border-2 border-destructive">
-                            <AvatarImage src={attempt.profiles?.avatar_url || undefined} />
+                            {attempt.profiles?.avatar_url && (
+                              <AvatarImage src={attempt.profiles.avatar_url} />
+                            )}
                             <AvatarFallback className="bg-destructive text-white">
                               <User className="w-4 h-4" />
                             </AvatarFallback>
@@ -426,7 +428,7 @@ export default function Messages() {
                           }`}
                         >
                           <Avatar className="border-2 border-primary">
-                            <AvatarImage src={conv.avatar_url || undefined} />
+                            {conv.avatar_url && <AvatarImage src={conv.avatar_url} />}
                             <AvatarFallback className="bg-gradient-instagram text-white">
                               <User className="w-4 h-4" />
                             </AvatarFallback>
@@ -462,7 +464,7 @@ export default function Messages() {
                       <ArrowLeft className="w-5 h-5" />
                     </Button>
                     <Avatar className="border-2 border-primary">
-                      <AvatarImage src={selectedUser.avatar_url || undefined} />
+                      {selectedUser.avatar_url && <AvatarImage src={selectedUser.avatar_url} />}
                       <AvatarFallback className="bg-gradient-instagram text-white">
                         <User className="w-4 h-4" />
                       </AvatarFallback>
@@ -555,7 +557,7 @@ export default function Messages() {
                         className="flex items-center gap-3 p-3 rounded-lg cursor-pointer hover:bg-muted transition-colors"
                       >
                         <Avatar className="border-2 border-primary">
-                          <AvatarImage src={profile.avatar_url || undefined} />
+                          {profile.avatar_url && <AvatarImage src={profile.avatar_url} />}
                           <AvatarFallback className="bg-gradient-instagram text-white">
                             <User className="w-4 h-4" />
                           </AvatarFallback>

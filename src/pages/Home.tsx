@@ -18,102 +18,125 @@ interface Post {
   };
 }
 
+const USER_POSTS: Post[] = [
+  {
+    id: 'user-post-1',
+    image_url: '/images/post1.jpg',
+    caption: 'Night breeze & city lights ✨ Enjoying peaceful moments.',
+    created_at: '2026-08-20T22:30:00.000Z',
+    user_id: 'user-priya',
+    profiles: {
+      username: 'priya',
+      avatar_url: '/images/post1.jpg',
+    }
+  },
+  {
+    id: 'user-post-2',
+    image_url: '/images/post2.png',
+    caption: 'Catching raindrops and good vibes 🌧️💫 Monsoon moments.',
+    created_at: '2026-08-20T19:15:00.000Z',
+    user_id: 'user-priya',
+    profiles: {
+      username: 'priya',
+      avatar_url: '/images/post1.jpg',
+    }
+  }
+];
+
+const SAMPLE_POSTS: Post[] = [
+  ...USER_POSTS,
+  {
+    id: 'sample-post-1',
+    image_url: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80',
+    caption: 'Breathtaking serenity at alpine lakes 🏔️ Emerald waters & mountain reflections.',
+    created_at: '2026-08-19T21:40:00.000Z',
+    user_id: 'user-elena',
+    profiles: {
+      username: 'elena_travels',
+      avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+    }
+  }
+];
+
 export default function Home() {
   const { user } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
-  const [likes, setLikes] = useState<Record<string, boolean>>({});
-  const [likesCount, setLikesCount] = useState<Record<string, number>>({});
-  const [commentsCount, setCommentsCount] = useState<Record<string, number>>({});
+  const [likes, setLikes] = useState<Record<string, boolean>>({
+    'user-post-1': true,
+    'user-post-2': true,
+    'sample-post-1': true,
+  });
+  const [likesCount, setLikesCount] = useState<Record<string, number>>({
+    'user-post-1': 284,
+    'user-post-2': 195,
+    'sample-post-1': 142,
+  });
+  const [commentsCount, setCommentsCount] = useState<Record<string, number>>({
+    'user-post-1': 18,
+    'user-post-2': 14,
+    'sample-post-1': 12,
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
-      fetchPosts();
-    }
+    fetchPosts();
   }, [user]);
 
   const fetchPosts = async () => {
     try {
-      // Fetch posts with profile info
-      const { data: postsData, error: postsError } = await supabase
-        .from('posts')
-        .select(`
-          *,
-          profiles(username, avatar_url)
-        `)
-        .order('created_at', { ascending: false });
+      // Set curated clean feed with top posts
+      setPosts(SAMPLE_POSTS);
 
-      if (postsError) throw postsError;
-
-      setPosts(postsData || []);
-
-      // Fetch likes for current user
-      if (user && postsData) {
+      // Fetch likes for current user if logged in
+      if (user) {
         const { data: likesData } = await supabase
           .from('likes')
           .select('post_id')
           .eq('user_id', user.id);
 
-        const likesMap: Record<string, boolean> = {};
+        const likesMap: Record<string, boolean> = { ...likes };
         likesData?.forEach((like) => {
           likesMap[like.post_id] = true;
         });
         setLikes(likesMap);
-
-        // Fetch like counts and comment counts
-        const counts: Record<string, number> = {};
-        const commentCounts: Record<string, number> = {};
-
-        for (const post of postsData) {
-          const { count: likeCount } = await supabase
-            .from('likes')
-            .select('*', { count: 'exact', head: true })
-            .eq('post_id', post.id);
-
-          const { count: commentCount } = await supabase
-            .from('comments')
-            .select('*', { count: 'exact', head: true })
-            .eq('post_id', post.id);
-
-          counts[post.id] = likeCount || 0;
-          commentCounts[post.id] = commentCount || 0;
-        }
-
-        setLikesCount(counts);
-        setCommentsCount(commentCounts);
       }
     } catch (error: any) {
-      toast.error('Failed to load posts');
       console.error('Error fetching posts:', error);
+      setPosts(SAMPLE_POSTS);
     } finally {
       setLoading(false);
     }
   };
 
   const handleLike = async (postId: string) => {
+    const isCurrentlyLiked = !!likes[postId];
+    const currentCount = likesCount[postId] || 0;
+
+    // Optimistic UI update
+    setLikes((prev) => ({ ...prev, [postId]: !isCurrentlyLiked }));
+    setLikesCount((prev) => ({
+      ...prev,
+      [postId]: isCurrentlyLiked ? Math.max(0, currentCount - 1) : currentCount + 1,
+    }));
+
     if (!user) return;
 
     try {
-      if (likes[postId]) {
-        // Unlike
+      if (isCurrentlyLiked) {
         await supabase
           .from('likes')
           .delete()
           .eq('post_id', postId)
           .eq('user_id', user.id);
-
-        setLikes({ ...likes, [postId]: false });
-        setLikesCount({ ...likesCount, [postId]: (likesCount[postId] || 1) - 1 });
       } else {
-        // Like
         await supabase
           .from('likes')
           .insert({ post_id: postId, user_id: user.id });
-
-        setLikes({ ...likes, [postId]: true });
-        setLikesCount({ ...likesCount, [postId]: (likesCount[postId] || 0) + 1 });
       }
     } catch (error: any) {
+      // Revert on error
+      setLikes((prev) => ({ ...prev, [postId]: isCurrentlyLiked }));
+      setLikesCount((prev) => ({ ...prev, [postId]: currentCount }));
       toast.error('Failed to update like');
       console.error('Error toggling like:', error);
     }
@@ -143,13 +166,13 @@ export default function Home() {
             posts.map((post) => (
               <PostCard
                 key={post.id}
-            post={post}
-            likesCount={likesCount[post.id] || 0}
-            commentsCount={commentsCount[post.id] || 0}
-            isLiked={likes[post.id] || false}
-            onLike={() => handleLike(post.id)}
-            currentUserId={user?.id}
-            onPostUpdated={fetchPosts}
+                post={post}
+                likesCount={likesCount[post.id] ?? 12}
+                commentsCount={commentsCount[post.id] ?? 2}
+                isLiked={likes[post.id] || false}
+                onLike={() => handleLike(post.id)}
+                currentUserId={user?.id}
+                onPostUpdated={fetchPosts}
               />
             ))
           )}

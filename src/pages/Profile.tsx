@@ -132,7 +132,7 @@ export default function Profile() {
           <Card className="p-8">
             <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
               <Avatar className="w-32 h-32 border-4 border-primary">
-                <AvatarImage src={profile.avatar_url || undefined} />
+                {profile.avatar_url && <AvatarImage src={profile.avatar_url} />}
                 <AvatarFallback className="bg-gradient-instagram text-white text-4xl">
                   <User className="w-16 h-16" />
                 </AvatarFallback>
@@ -180,11 +180,27 @@ export default function Profile() {
                     key={post.id}
                     className="relative aspect-square bg-muted rounded-sm overflow-hidden cursor-pointer hover:opacity-90 transition-opacity"
                   >
-                    <img
-                      src={post.image_url}
-                      alt={post.caption || 'Post'}
-                      className="w-full h-full object-cover"
-                    />
+                    {post.image_url ? (
+                      <>
+                        <img
+                          src={post.image_url}
+                          alt={post.caption || 'Post'}
+                          className="w-full h-full object-cover select-none"
+                          draggable="false"
+                          onContextMenu={(e) => e.preventDefault()}
+                        />
+                        <ProtectionOverlay 
+                          username={profile.username} 
+                          contentOwnerId={profile.id}
+                          contentType="post"
+                          contentId={post.id}
+                        />
+                      </>
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center p-2 text-center text-xs text-muted-foreground">
+                        {post.caption || 'Post'}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

@@ -98,7 +98,7 @@ export const Navbar = () => {
                 className="cursor-pointer border-2 border-primary"
                 onClick={() => navigate('/profile')}
               >
-                <AvatarImage src={avatarUrl || undefined} />
+                {avatarUrl && <AvatarImage src={avatarUrl} />}
                 <AvatarFallback className="bg-gradient-instagram text-white">
                   <User className="w-4 h-4" />
                 </AvatarFallback>

@@ -10,6 +10,7 @@ import CreatePost from "./pages/CreatePost";
 import Profile from "./pages/Profile";
 import Messages from "./components/Messages";
 import NotFound from "./pages/NotFound";
+import { GlobalProtection } from "./components/GlobalProtection";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <GlobalProtection />
       <BrowserRouter>
         <AuthProvider>
           <Routes>

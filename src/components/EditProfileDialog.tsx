@@ -189,7 +189,6 @@ export function EditProfileDialog({
           {/* Avatar Upload */}
           <div className="flex flex-col items-center gap-4">
             <Avatar className="w-24 h-24 border-4 border-primary">
-              <AvatarImage src={formData.avatar_url || undefined} />
               <AvatarFallback className="bg-gradient-instagram text-white text-2xl">
                 <User className="w-12 h-12" />
               </AvatarFallback>

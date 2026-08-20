@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
-import { AlertTriangle } from 'lucide-react';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertTriangle, ShieldAlert } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 // Cryptographic obfuscation utilities
 const generateHash = (str: string): string => {
@@ -12,10 +13,6 @@ const generateHash = (str: string): string => {
     hash = hash & hash;
   }
   return Math.abs(hash).toString(36);
-};
-
-const obfuscateEventName = (event: string): string => {
-  return btoa(event).split('').reverse().join('');
 };
 
 // DOM integrity checker using hash verification
@@ -40,8 +37,43 @@ export const ProtectionOverlay = ({ username, contentOwnerId, contentType, conte
   const domFingerprintRef = useRef<string>(createDOMFingerprint());
   const eventTimestampsRef = useRef<number[]>([]);
 
+  const blurContent = () => {
+    setIsBlurred(true);
+    setTimeout(() => setIsBlurred(false), 2500);
+  };
+
+  const triggerWarning = async () => {
+    setShowWarning(true);
+    blurContent();
+    onAttempt?.();
+
+    toast.error('⚠️ This is private content. Screenshots and downloads are not allowed.', {
+      id: 'protection-toast',
+      duration: 4000,
+    });
+
+    // Log screenshot attempt to database if owner info provided
+    if (contentOwnerId) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        // Only log if not owner
+        if (user && user.id !== contentOwnerId) {
+          await supabase.from('screenshot_attempts').insert({
+            content_owner_id: contentOwnerId,
+            attempted_by_id: user.id,
+            content_type: contentType || 'profile',
+            content_id: contentId
+          });
+        }
+      } catch (error) {
+        console.error('Error logging screenshot attempt:', error);
+      }
+    }
+
+    setTimeout(() => setShowWarning(false), 5000);
+  };
+
   useEffect(() => {
-    // Initialize DOM fingerprint for integrity checking
     domFingerprintRef.current = createDOMFingerprint();
 
     // Advanced event detection with timing analysis
@@ -51,21 +83,18 @@ export const ProtectionOverlay = ({ username, contentOwnerId, contentType, conte
         eventTimestampsRef.current.shift();
       }
       
-      // Detect rapid sequential events (bot behavior)
       if (eventTimestampsRef.current.length >= 5) {
         const intervals = eventTimestampsRef.current
           .slice(1)
           .map((t, i) => t - eventTimestampsRef.current[i]);
         const avgInterval = intervals.reduce((a, b) => a + b, 0) / intervals.length;
         
-        if (avgInterval < 10) { // Suspiciously fast
+        if (avgInterval < 10) {
           triggerWarning();
-          blurContent();
         }
       }
     };
 
-    // Obfuscated event handlers with cryptographic validation
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
@@ -74,17 +103,16 @@ export const ProtectionOverlay = ({ username, contentOwnerId, contentType, conte
       return false;
     };
 
-    // Enhanced keyboard protection with obfuscation
     const handleKeyDown = (e: KeyboardEvent) => {
       const blockedKeys = [
-        'F12', 'F11', // Dev tools
-        ...(e.ctrlKey && e.shiftKey ? ['I', 'C', 'J', 'K'] : []),
-        ...(e.ctrlKey ? ['U', 'S', 'P'] : []),
-        ...(e.metaKey ? ['U', 'S', 'P'] : []),
+        'F12', 'F11',
+        ...(e.ctrlKey && e.shiftKey ? ['I', 'C', 'J', 'K', 'S', 'i', 'c', 'j', 'k', 's'] : []),
+        ...(e.ctrlKey ? ['u', 'U', 's', 'S', 'p', 'P'] : []),
+        ...(e.metaKey ? ['u', 'U', 's', 'S', 'p', 'P'] : []),
         'PrintScreen'
       ];
 
-      if (blockedKeys.some(key => e.key === key)) {
+      if (blockedKeys.some(key => e.key === key) || e.keyCode === 123 || e.code === 'F12') {
         e.preventDefault();
         e.stopPropagation();
         detectAutomatedTools(Date.now());
@@ -93,16 +121,13 @@ export const ProtectionOverlay = ({ username, contentOwnerId, contentType, conte
       }
     };
 
-    // Screenshot detection
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'PrintScreen') {
+      if (e.key === 'PrintScreen' || e.code === 'PrintScreen') {
         detectAutomatedTools(Date.now());
         triggerWarning();
-        blurContent();
       }
     };
 
-    // Prevent drag and drop
     const handleDragStart = (e: DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
@@ -111,7 +136,6 @@ export const ProtectionOverlay = ({ username, contentOwnerId, contentType, conte
       return false;
     };
 
-    // Detect clipboard events
     const handleCopy = (e: ClipboardEvent) => {
       e.preventDefault();
       e.stopPropagation();
@@ -120,31 +144,18 @@ export const ProtectionOverlay = ({ username, contentOwnerId, contentType, conte
       return false;
     };
 
-    // DOM mutation observer removed to prevent API errors
-
-    // Detect visibility change (potential screenshot tools)
     const handleVisibilityChange = () => {
       if (document.hidden) {
         blurContent();
       }
     };
 
-    // Detect focus loss (potential screenshot capture)
     const handleBlur = () => {
       setTimeout(() => {
         blurContent();
       }, 100);
     };
 
-    // Detect fullscreen changes (potential screenshot attempt)
-    const handleFullscreenChange = () => {
-      if (document.fullscreenElement) {
-        triggerWarning();
-        blurContent();
-      }
-    };
-
-    // Add all event listeners with obfuscated names
     const events = [
       ['contextmenu', handleContextMenu],
       ['keydown', handleKeyDown],
@@ -160,107 +171,72 @@ export const ProtectionOverlay = ({ username, contentOwnerId, contentType, conte
     });
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
     window.addEventListener('blur', handleBlur);
-
-    // CSS-based protection
-    document.body.style.userSelect = 'none';
-    document.body.style.webkitUserSelect = 'none';
-    (document.body.style as any).webkitTouchCallout = 'none';
-    (document.body.style as any).webkitUserDrag = 'none';
-
-    // Canvas fingerprinting for tracking
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.textBaseline = 'top';
-      ctx.font = '14px Arial';
-      ctx.fillText(username, 2, 2);
-    }
 
     return () => {
       events.forEach(([event, handler]) => {
         document.removeEventListener(event, handler as EventListener, true);
       });
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      document.removeEventListener('fullscreenchange', handleFullscreenChange);
       window.removeEventListener('blur', handleBlur);
-      document.body.style.userSelect = '';
-      document.body.style.webkitUserSelect = '';
-      (document.body.style as any).webkitTouchCallout = '';
-      (document.body.style as any).webkitUserDrag = '';
     };
   }, [username]);
 
-  const triggerWarning = async () => {
-    // Log screenshot attempt to database if owner info provided
-    if (contentOwnerId) {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        // Only show warning and log if it's not the owner
-        if (user && user.id !== contentOwnerId) {
-          setShowWarning(true);
-          onAttempt?.();
-          
-          await supabase.from('screenshot_attempts').insert({
-            content_owner_id: contentOwnerId,
-            attempted_by_id: user.id,
-            content_type: contentType || 'profile',
-            content_id: contentId
-          });
-          
-          setTimeout(() => setShowWarning(false), 5000);
-        }
-      } catch (error) {
-        console.error('Error logging screenshot attempt:', error);
-      }
-    }
-  };
-
-  const blurContent = () => {
-    setIsBlurred(true);
-    setTimeout(() => setIsBlurred(false), 2000);
-  };
-
   return (
     <>
-      {/* Watermark overlay - always visible but subtle */}
+      {/* Watermark overlay */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
         <div
-          className="select-none text-6xl font-bold opacity-5 rotate-[-30deg]"
-          style={{ color: 'hsl(var(--watermark-overlay))' }}
+          className="select-none text-5xl font-extrabold opacity-15 rotate-[-25deg] tracking-widest text-primary/40 pointer-events-none"
         >
           @{username}
         </div>
       </div>
 
-      {/* Transparent protective layer */}
+      {/* Transparent protective layer to capture direct clicks / right-clicks */}
       <div 
-        className="absolute inset-0 z-10"
+        className="absolute inset-0 z-10 select-none cursor-pointer"
         style={{ background: 'transparent' }}
-        onContextMenu={(e) => e.preventDefault()}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          triggerWarning();
+        }}
+        onClick={(e) => {
+          // Double check attempt on clicks if needed
+        }}
       />
 
       {/* Blur overlay when screenshot detected */}
       {isBlurred && (
-        <div className="absolute inset-0 z-20 backdrop-blur-xl bg-black/80 flex items-center justify-center">
-          <div className="text-white text-center space-y-2">
-            <AlertTriangle className="w-16 h-16 mx-auto text-destructive" />
-            <p className="text-xl font-bold">Screenshot Detected!</p>
-            <p className="text-sm text-muted-foreground">Content protected</p>
-          </div>
+        <div className="absolute inset-0 z-20 backdrop-blur-2xl bg-black/85 flex flex-col items-center justify-center select-none animate-in fade-in duration-150">
+          <ShieldAlert className="w-14 h-14 text-destructive animate-pulse mb-2" />
+          <p className="text-lg font-bold text-white">Screenshot Detected!</p>
+          <p className="text-xs text-muted-foreground">Private media protected</p>
         </div>
       )}
 
-      {/* Warning alert */}
+      {/* Prominent Warning Modal Popup */}
       {showWarning && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-md px-4">
-          <Alert variant="destructive" className="border-2 shadow-lg animate-in slide-in-from-top">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription className="font-medium">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-card border-2 border-destructive text-card-foreground p-6 rounded-2xl shadow-2xl max-w-md w-full text-center space-y-4 animate-in zoom-in-95">
+            <div className="w-16 h-16 rounded-full bg-destructive/10 text-destructive flex items-center justify-center mx-auto ring-8 ring-destructive/10">
+              <AlertTriangle className="w-8 h-8" />
+            </div>
+            <h3 className="text-xl font-bold text-destructive">Private Content Protection</h3>
+            <p className="text-base font-semibold text-foreground">
               ⚠️ This is private content. Screenshots and downloads are not allowed.
-            </AlertDescription>
-          </Alert>
+            </p>
+            <p className="text-xs text-muted-foreground">
+              This content belongs to @{username}. Your action has been blocked to protect private media.
+            </p>
+            <Button
+              variant="destructive"
+              className="w-full mt-4 font-semibold text-base py-2.5 shadow-lg"
+              onClick={() => setShowWarning(false)}
+            >
+              I Understand
+            </Button>
+          </div>
         </div>
       )}
     </>
